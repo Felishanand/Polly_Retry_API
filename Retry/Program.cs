@@ -10,8 +10,8 @@ namespace Retry
 {
     class Program
     {
-        static string uri = "https://jsonplaceholder.typicode.com/posts1";
-        private static int retryCount = 2;
+        static readonly string uri = "https://jsonplaceholder.typicode.com/posts";
+        private static readonly int retryCount = 2;
 
         static void Main(string[] args)
         {
