@@ -8,16 +8,15 @@ using System.Threading.Tasks;
 
 namespace BulkHead
 {
-    class Program : ProgramBase
+    class Program
     {
-        static readonly string requestEndPoint = "https://jsonplaceholder.typicode.com/posts";
-        private static readonly int retryCount = 2;
-        //static BulkheadPolicy<HttpResponseMessage> bulkHeadIsolationPolicy;
-        private static AsyncBulkheadPolicy<HttpResponseMessage> bulkHeadIsolationPolicy;
+        static string requestEndPoint = "https://jsonplaceholder.typicode.com/posts6";
+        static HttpClient httpClient = new HttpClient();
+        static AsyncBulkheadPolicy<HttpResponseMessage> bulkHeadIsolationPolicy;
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Bulk Head Operation");
+            Console.WriteLine("Bulk Head");
 
             Setup();
 
@@ -25,55 +24,59 @@ namespace BulkHead
 
             for (int i = 0; i < 10; i++)
             {
-                taskList.Add(Task.Run(() => GetMockData(i)));
+                taskList.Add(Task.Run(() => Fetch(i)));
             }
 
             Task.WaitAll(taskList.ToArray());
+
         }
 
         private static void Setup()
         {
-            bulkHeadIsolationPolicy = Policy.BulkheadAsync<HttpResponseMessage>(2, 2, onBulkheadRejectedAsync);
+            bulkHeadIsolationPolicy = Policy.BulkheadAsync<HttpResponseMessage>(2, 2, OnBulkHeadRejectedAsync);
+        }
+
+        private static Task OnBulkHeadRejectedAsync(Context arg)
+        {
+            Console.WriteLine($"OnBulkHeadRejectedAsync Excuted");
+            return Task.CompletedTask;
         }
 
         private static void LogBulkHeadInfo()
         {
-            Console.WriteLine($"BulkheadAvailableCount:"
-                + $"{ bulkHeadIsolationPolicy.BulkheadAvailableCount}");
+            Console.WriteLine($"BulkheadAvailableCount" +
+                $"{bulkHeadIsolationPolicy.BulkheadAvailableCount}");
 
-            Console.WriteLine($"QueueAvailableCount:"
-                + $"{ bulkHeadIsolationPolicy.QueueAvailableCount}");
-
+            Console.WriteLine($"QueueAvailableCount" +
+                $"{bulkHeadIsolationPolicy.QueueAvailableCount}");
         }
 
-        private static async Task GetMockData(int id)
+        private static async Task Fetch(int id)
         {
-            LogBulkHeadInfo();
-           
-            HttpClient httpClient = new HttpClient();           
-
-            HttpResponseMessage response = await bulkHeadIsolationPolicy.ExecuteAsync(
-            () =>
-            {
-                return httpClient.GetAsync(requestEndPoint + "/" + id);
-            });
-            
             try
             {
+                LogBulkHeadInfo();
+
+                HttpResponseMessage response = await bulkHeadIsolationPolicy.ExecuteAsync(
+                    () =>
+                    {
+                        return httpClient.GetAsync(requestEndPoint + "/" + id);
+                    });
+
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
-                    var posts = JsonConvert.DeserializeObject<Post>(json);
+                    var post = JsonConvert.DeserializeObject<Post>(json);
+                    Console.WriteLine($"\n {post.Title}");
 
-                    Console.WriteLine("Result Data:");
-                    Console.WriteLine(posts.Title);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"{ex.Message}");
+                Console.WriteLine(ex.Message);
             }
 
         }
+
     }
 }
